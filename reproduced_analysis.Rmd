@@ -1,0 +1,101 @@
+---
+title: "Reproduced Analysis"
+author: "Gathoni"
+date: "2026-01-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This project is a reproduction of analysis from Hackenberg et al., *Levers of Political Persuasion with Conversational AI* (2025). Specifically, my aim in this project was to reproduce their analysis on the effect of personalisation on persuasion.
+
+## Overview of Findings
+
+When I reran the analysis on the effect of personalisation on persuasion, I found the same results as the initial study: while there was a statistically significant effect, the mean difference was less than a point (0.65).
+```{r load_data, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+# Load packages
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+
+# Load data
+my_data_clean <- readRDS("my_data_clean.rds")
+
+# Check current structure
+cat("Current personalize variable:\n")
+print(table(my_data_clean$personalize))
+
+# Convert to numeric: generic = 0, personalized = 1
+my_data_clean$personalize_numeric <- ifelse(my_data_clean$personalize == "personalized", 1, 0)
+cat("\nConverted to numeric:\n")
+cat("0 = generic, 1 = personalized\n\n")
+
+
+```
+```{r}
+# Pearson correlation
+cor_test <- cor.test(my_data_clean$personalize_numeric, 
+                     my_data_clean$post_minus_pre, 
+                     method = "pearson")
+cor_test 
+```
+```{r}
+# Interpretation 
+if(cor_test$p.value < 0.05) {
+  cat("✓ Significant correlation (p < 0.05)\n")
+  if(cor_test$estimate > 0) {
+    cat("  → Positive correlation: Personalization associated with higher persuasion shift\n")
+  } else {
+    cat("  → Negative correlation: Personalization associated with lower persuasion shift\n")
+  }
+} else {
+  cat("✗ No significant correlation (p ≥ 0.05)\n")
+  cat("  → No linear relationship between personalization and persuasion shift\n")
+}
+```
+```{r}
+# Descriptive statistic by group
+generic_data <- my_data_clean[!is.na(my_data_clean$personalize) & 
+                                !is.na(my_data_clean$post_minus_pre) &
+                                my_data_clean$personalize == "generic", ]
+personalized_data <- my_data_clean[!is.na(my_data_clean$personalize) & 
+                                     !is.na(my_data_clean$post_minus_pre) &
+                                     my_data_clean$personalize == "personalized", ]
+# Difference between the groups
+mean_diff <- mean(personalized_data$post_minus_pre, na.rm = TRUE) - 
+  mean(generic_data$post_minus_pre, na.rm = TRUE)
+cat("  Mean difference:", round(mean_diff, 2), "points\n")
+cat("  Personalized", ifelse(mean_diff > 0, "HIGHER", "LOWER"), "than generic\n")
+
+```
+```{r}
+# Boxplot
+ggplot(my_data_clean, aes(x = personalize, y = post_minus_pre, fill = personalize)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(alpha = 0.1, width = 0.2, size = 0.5) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, 
+               fill = "red", color = "darkred") +
+  labs(
+    title = "Persuasion Shift by Message Type",
+    subtitle = paste0("Pearson r = ", round(cor_test$estimate, 3), 
+                     ", p = ", format.pval(cor_test$p.value, digits = 3)),
+    x = "Message Type",
+    y = "Persuasion Shift (Post - Pre)",
+    caption = "Red diamond = mean"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "none"
+  ) +
+  scale_fill_manual(values = c("generic" = "#E41A1C", "personalized" = "#377EB8"))
+```
+## Conclusion
+
+The reproduced findings confirm the initial results from Hackenberg et al. (2025). While personalisation showed a statistically significant effect on persuasion, the practical significance remains limited with a mean difference of 0.65 points between conditions.
